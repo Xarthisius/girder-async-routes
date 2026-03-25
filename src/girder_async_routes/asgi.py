@@ -5,7 +5,7 @@ from starlette.applications import Starlette
 from starlette.middleware.wsgi import WSGIMiddleware
 from starlette.routing import Mount, WebSocketRoute
 
-from async_file_routes import async_file_routes
+from girder_async_routes import async_file_routes
 from girder.notification import UserNotificationsSocket
 from girder.wsgi import app as wsgi_app
 

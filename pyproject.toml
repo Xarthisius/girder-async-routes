@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "girder-async-routes"
+version = "0.1.0"
+description = "Async-native file download routes for Girder, bypassing WSGIMiddleware buffering"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "anyio",
+    "girder>=5.0.0a5",
+    "starlette",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "pytest-girder>=5.0.0a5",
+    "tox",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["girder_async_routes"]
+
+[tool.coverage.report]
+show_missing = true

@@ -21,7 +21,7 @@ import pytest
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
-from async_file_routes import async_file_routes
+from girder_async_routes import async_file_routes
 
 from girder.models.folder import Folder
 from girder.models.item import Item
