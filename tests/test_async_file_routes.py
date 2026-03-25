@@ -21,8 +21,9 @@ import pytest
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
-from girder_async_routes import async_file_routes
+from girder_async_routes.routes import async_file_routes
 
+from girder.constants import TokenScope
 from girder.models.folder import Folder
 from girder.models.item import Item
 from girder.models.token import Token
@@ -56,13 +57,13 @@ def http(asgi_app):
 @pytest.fixture
 def token(admin):
     """Create and return a Girder token for the admin user."""
-    return Token().createToken(admin)
+    return Token().createToken(admin, scope=[TokenScope.DATA_READ])
 
 
 @pytest.fixture
 def user_token(user):
     """Create and return a Girder token for the regular user."""
-    return Token().createToken(user)
+    return Token().createToken(user, scope=[TokenScope.DATA_READ])
 
 
 @pytest.fixture
@@ -213,6 +214,22 @@ class TestFileDownload:
         )
         assert resp.status_code == 200
         assert resp.content == b"FGHIJ"
+
+    def test_private_file_accessible_with_owner_token(
+        self, server, http, admin, fsAssetstore, token
+    ):
+        """Owner can download their own private file – exercises the successful
+        _authenticate() return path (routes.py line 141)."""
+        private_folder = _get_private_folder(admin)
+        content = b"private content"
+        file = _upload_file(server, "priv_owner.txt", content, admin, private_folder)
+
+        resp = http.get(
+            f"/api/v1/file/{file['_id']}/download",
+            headers=_auth_headers(token),
+        )
+        assert resp.status_code == 200
+        assert resp.content == content
 
 
 # ---------------------------------------------------------------------------
@@ -368,6 +385,23 @@ class TestItemDownloadErrors:
         )
         assert resp.status_code == 404
 
+    def test_private_item_accessible_with_owner_token(
+        self, server, http, admin, fsAssetstore, token
+    ):
+        """Owner can download an item from their private folder."""
+        private_folder = _get_private_folder(admin)
+        content = b"private item content"
+        _upload_file(server, "priv_item_owner.txt", content, admin, private_folder)
+        items = list(Folder().childItems(private_folder))
+        item = next(i for i in items if i["name"] == "priv_item_owner.txt")
+
+        resp = http.get(
+            f"/api/v1/item/{item['_id']}/download",
+            headers=_auth_headers(token),
+        )
+        assert resp.status_code == 200
+        assert resp.content == content
+
 
 # ---------------------------------------------------------------------------
 # /api/v1/folder/{folder_id}/download
@@ -467,6 +501,19 @@ class TestFolderDownloadErrors:
             headers=_auth_headers(token),
         )
         assert resp.status_code == 404
+
+    def test_private_folder_accessible_with_owner_token(
+        self, server, http, admin, fsAssetstore, token
+    ):
+        """Owner can download their own private folder as a zip."""
+        private_folder = _get_private_folder(admin)
+
+        resp = http.get(
+            f"/api/v1/folder/{private_folder['_id']}/download",
+            headers=_auth_headers(token),
+        )
+        assert resp.status_code == 200
+        assert resp.headers["Content-Type"] == "application/zip"
 
     def test_user_cannot_read_private_folder(
         self, server, http, admin, fsAssetstore, user_token

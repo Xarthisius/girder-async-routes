@@ -17,6 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "httpx",
     "pytest",
     "pytest-cov",
     "pytest-girder>=5.0.0a5",
