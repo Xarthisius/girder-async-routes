@@ -1,4 +1,5 @@
 # Build outputs
+girder_async_routes-*/
 /build/
 _build/
 /.tox/
