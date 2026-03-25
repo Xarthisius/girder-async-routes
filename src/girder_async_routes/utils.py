@@ -107,7 +107,10 @@ def _authenticate(token_str: str | None):
         token is None
         or token["expires"] < datetime.datetime.now(datetime.timezone.utc)
         or "userId" not in token
-        or not Token().hasScope(token, TokenScope.DATA_READ)
+        or not (
+            Token().hasScope(token, TokenScope.USER_AUTH)
+            or Token().hasScope(token, TokenScope.DATA_READ)
+        )
     ):
         return None, None
 
