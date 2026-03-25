@@ -5,13 +5,12 @@ from __future__ import annotations
 import json
 
 import anyio
-from starlette.responses import Response, StreamingResponse
-from starlette.routing import Route
-
 from girder.constants import AccessType
 from girder.exceptions import AccessException
 from girder.models.folder import Folder as FolderModel
 from girder.utility import ziputil
+from starlette.responses import Response, StreamingResponse
+from starlette.routing import Route
 
 from .utils import (
     _authenticate,
@@ -20,7 +19,6 @@ from .utils import (
     _json_error,
     _log_access,
 )
-
 
 # ---------------------------------------------------------------------------
 # Blocking helpers – called via anyio.to_thread.run_sync
@@ -45,7 +43,7 @@ def _build_folder_zip_gen(folder, user, mime_filter=None):
 
     def stream():
         for path, file_gen in FolderModel().fileList(
-            folder, user=user, subpath=False, mimeFilter=mime_filter
+            folder, user=user, subpath=False, mimeFilter=mime_filter,
         ):
             yield from z.addFile(file_gen, path)
         yield z.footer()
@@ -78,7 +76,7 @@ async def _handle_folder_download(request, folder_id: str) -> Response:
     folder = info["folder"]
     user = info["user"]
     gen = await anyio.to_thread.run_sync(
-        lambda: _build_folder_zip_gen(folder, user, mime_filter)
+        lambda: _build_folder_zip_gen(folder, user, mime_filter),
     )
     return StreamingResponse(
         _demand_driven_zip_stream(gen),

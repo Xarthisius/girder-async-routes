@@ -1,5 +1,4 @@
-"""
-Aggregator – assembles all async download routes from their submodules.
+"""Aggregator – assembles all async download routes from their submodules.
 
 Registered in asgi.py **before** the WSGIMiddleware Mount so these routes
 take precedence over the WSGI catch-all.

@@ -9,7 +9,6 @@ from girder.models.upload import Upload
 
 from .conftest import auth_headers, get_private_folder, upload_file
 
-
 # ---------------------------------------------------------------------------
 # /api/v1/item/{item_id}/download – single-file pass-through
 # ---------------------------------------------------------------------------
@@ -17,7 +16,7 @@ from .conftest import auth_headers, get_private_folder, upload_file
 
 class TestItemDownloadSingleFile:
     def test_single_file_item_returns_file_content(
-        self, server, http, admin, fsAssetstore, public_folder, token
+        self, server, http, admin, fsAssetstore, public_folder, token,
     ):
         content = b"item single file"
         upload_file(server, "item_single.txt", content, admin, public_folder)
@@ -33,7 +32,7 @@ class TestItemDownloadSingleFile:
         assert resp.content == content
 
     def test_single_file_item_format_zip_returns_zip(
-        self, server, http, admin, fsAssetstore, public_folder, token
+        self, server, http, admin, fsAssetstore, public_folder, token,
     ):
         content = b"force zip"
         upload_file(server, "item_zip.bin", content, admin, public_folder)
@@ -58,7 +57,7 @@ class TestItemDownloadSingleFile:
 
 class TestItemDownloadZip:
     def test_multi_file_item_returns_zip(
-        self, server, http, admin, fsAssetstore, public_folder, token
+        self, server, http, admin, fsAssetstore, public_folder, token,
     ):
         item = Item().createItem(name="multi_item", creator=admin, folder=public_folder)
         for i, body in enumerate([b"file one content", b"file two content"]):
@@ -91,7 +90,7 @@ class TestItemDownloadZip:
 
 class TestItemDownloadErrors:
     def test_unauthenticated_returns_403(
-        self, server, http, admin, fsAssetstore, token
+        self, server, http, admin, fsAssetstore, token,
     ):
         private_folder = get_private_folder(admin)
         content = b"item secret"
@@ -110,7 +109,7 @@ class TestItemDownloadErrors:
         assert resp.status_code == 404
 
     def test_private_item_accessible_with_owner_token(
-        self, server, http, admin, fsAssetstore, token
+        self, server, http, admin, fsAssetstore, token,
     ):
         private_folder = get_private_folder(admin)
         content = b"private item content"

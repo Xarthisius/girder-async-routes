@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import anyio
-from starlette.responses import Response, StreamingResponse
-from starlette.routing import Route
-
 from girder.constants import AccessType
 from girder.exceptions import AccessException
 from girder.models.item import Item as ItemModel
 from girder.utility import ziputil
+from starlette.responses import Response, StreamingResponse
+from starlette.routing import Route
 
 from .file import _handle_download
 from .utils import (
@@ -20,15 +19,13 @@ from .utils import (
     _log_access,
 )
 
-
 # ---------------------------------------------------------------------------
 # Blocking helpers – called via anyio.to_thread.run_sync
 # ---------------------------------------------------------------------------
 
 
 def _resolve_item(item_id: str, token_str: str | None, format_param: str | None):
-    """
-    Authenticate, ACL-check, and decide whether this is a single-file
+    """Authenticate, ACL-check, and decide whether this is a single-file
     pass-through or a multi-file zip.  Runs in a thread pool.
     """
     user, _ = _authenticate(token_str)
@@ -72,7 +69,7 @@ async def _handle_item_download(request, item_id: str) -> Response:
     format_param = request.query_params.get("format", "")
 
     info = await anyio.to_thread.run_sync(
-        lambda: _resolve_item(item_id, token_str, format_param)
+        lambda: _resolve_item(item_id, token_str, format_param),
     )
     status = info.get("status_code", 500)
     if status == 403:

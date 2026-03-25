@@ -5,13 +5,12 @@ from __future__ import annotations
 import json
 
 import anyio
-from starlette.responses import Response, StreamingResponse
-from starlette.routing import Route
-
 from girder.constants import AccessType
 from girder.exceptions import AccessException
 from girder.utility import ziputil
 from girder.utility.model_importer import ModelImporter
+from starlette.responses import Response, StreamingResponse
+from starlette.routing import Route
 
 from .utils import (
     _authenticate,
@@ -20,7 +19,6 @@ from .utils import (
     _json_error,
     _log_access,
 )
-
 
 # ---------------------------------------------------------------------------
 # Blocking helpers – called via anyio.to_thread.run_sync
@@ -32,8 +30,7 @@ def _resolve_resource_download(
     include_metadata: bool,
     token_str: str | None,
 ):
-    """
-    Parse the ``resources`` JSON param, authenticate, ACL-check every document,
+    """Parse the ``resources`` JSON param, authenticate, ACL-check every document,
     and return the list of (model, doc) pairs to zip.  Runs inside a thread pool.
     """
     if not resources_json:
@@ -84,7 +81,7 @@ def _build_resources_zip_gen(resolved, user, include_metadata: bool):
     def stream():
         for model, doc in resolved:
             for path, file_gen in model.fileList(
-                doc=doc, user=user, includeMetadata=include_metadata, subpath=True
+                doc=doc, user=user, includeMetadata=include_metadata, subpath=True,
             ):
                 yield from z.addFile(file_gen, path)
         yield z.footer()
@@ -114,14 +111,14 @@ async def _handle_resource_download(request) -> Response:
     else:
         resources_json = request.query_params.get("resources")
         include_metadata = request.query_params.get(
-            "includeMetadata", "false"
+            "includeMetadata", "false",
         ).lower() in (
             "true",
             "1",
         )
 
     info = await anyio.to_thread.run_sync(
-        lambda: _resolve_resource_download(resources_json, include_metadata, token_str)
+        lambda: _resolve_resource_download(resources_json, include_metadata, token_str),
     )
     status = info.get("status_code", 500)
     if status == 400:
@@ -134,7 +131,7 @@ async def _handle_resource_download(request) -> Response:
     resolved = info["resolved"]
     user = info["user"]
     gen = await anyio.to_thread.run_sync(
-        lambda: _build_resources_zip_gen(resolved, user, include_metadata)
+        lambda: _build_resources_zip_gen(resolved, user, include_metadata),
     )
     return StreamingResponse(
         _demand_driven_zip_stream(gen),

@@ -8,11 +8,10 @@ import json
 import logging
 
 import anyio
-from starlette.responses import Response
-
 from girder.constants import TokenScope
 from girder.models.token import Token
 from girder.models.user import User
+from starlette.responses import Response
 
 logger = logging.getLogger(__name__)
 # Use the same logger namespace as CherryPy so existing log config applies.
@@ -27,8 +26,7 @@ BUF_SIZE = 65536  # 64 KiB — matches filesystem_assetstore_adapter
 
 
 def _log_access(handler):
-    """
-    Decorator that emits a CherryPy-compatible Combined Log Format entry after
+    """Decorator that emits a CherryPy-compatible Combined Log Format entry after
     each request completes, e.g.:
 
         127.0.0.1 - - [25/Mar/2026:08:11:41] "GET /api/v1/file/.../download HTTP/1.1" 200 - "-" "curl/8.x"
@@ -122,8 +120,7 @@ def _authenticate(token_str: str | None):
 
 
 async def _demand_driven_zip_stream(gen):
-    """
-    Iterate a sync zip generator one chunk per event-loop tick via the thread pool.
+    """Iterate a sync zip generator one chunk per event-loop tick via the thread pool.
     Each ``next()`` call runs in a worker thread; the event loop only advances to
     the next chunk after Uvicorn has handed the previous one to the OS send-buffer.
     """

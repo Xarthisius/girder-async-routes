@@ -1,5 +1,4 @@
-"""
-Shared fixtures and helpers for async-route integration tests.
+"""Shared fixtures and helpers for async-route integration tests.
 
 Real MongoDB + filesystem assetstore are used (no mocking).
 pytest-girder provides the ``db``, ``admin``, ``user``, ``fsAssetstore``,
@@ -15,14 +14,13 @@ for the ``?token=`` variant tests).
 """
 
 import pytest
+from girder.constants import TokenScope
+from girder.models.folder import Folder
+from girder.models.token import Token
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
 from girder_async_routes.routes import async_file_routes
-
-from girder.constants import TokenScope
-from girder.models.folder import Folder
-from girder.models.token import Token
 
 pytest_plugins = ["pytest_girder"]
 

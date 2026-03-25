@@ -9,7 +9,6 @@ from girder.models.upload import Upload
 
 from .conftest import auth_headers, get_private_folder
 
-
 # ---------------------------------------------------------------------------
 # /api/v1/folder/{folder_id}/download
 # ---------------------------------------------------------------------------
@@ -17,10 +16,10 @@ from .conftest import auth_headers, get_private_folder
 
 class TestFolderDownload:
     def test_folder_download_returns_zip(
-        self, server, http, admin, fsAssetstore, public_folder, token
+        self, server, http, admin, fsAssetstore, public_folder, token,
     ):
         sub = Folder().createFolder(
-            parent=public_folder, name="zip_sub", creator=admin, parentType="folder"
+            parent=public_folder, name="zip_sub", creator=admin, parentType="folder",
         )
         Upload().uploadFromFile(
             io.BytesIO(b"folder zip test"),
@@ -42,7 +41,7 @@ class TestFolderDownload:
         assert any("f.txt" in n for n in z.namelist())
 
     def test_folder_download_mime_filter(
-        self, server, http, admin, fsAssetstore, public_folder, token
+        self, server, http, admin, fsAssetstore, public_folder, token,
     ):
         sub = Folder().createFolder(
             parent=public_folder,
@@ -76,7 +75,7 @@ class TestFolderDownload:
         assert not any("drop.bin" in n for n in names)
 
     def test_folder_download_content_disposition(
-        self, server, http, admin, fsAssetstore, public_folder, token
+        self, server, http, admin, fsAssetstore, public_folder, token,
     ):
         resp = http.get(
             f"/api/v1/folder/{public_folder['_id']}/download",
@@ -107,7 +106,7 @@ class TestFolderDownloadErrors:
         assert resp.status_code == 404
 
     def test_private_folder_accessible_with_owner_token(
-        self, server, http, admin, fsAssetstore, token
+        self, server, http, admin, fsAssetstore, token,
     ):
         private_folder = get_private_folder(admin)
 
@@ -119,7 +118,7 @@ class TestFolderDownloadErrors:
         assert resp.headers["Content-Type"] == "application/zip"
 
     def test_user_cannot_read_private_folder(
-        self, server, http, admin, fsAssetstore, user_token
+        self, server, http, admin, fsAssetstore, user_token,
     ):
         folders = list(Folder().childFolders(admin, parentType="user", user=admin))
         private_folder = next(f for f in folders if f["name"] == "Private")
@@ -137,8 +136,7 @@ class TestFolderDownloadErrors:
 
 
 class TestFolderDownloadMixedContent:
-    """
-    A folder containing both a regular filesystem-stored file and a link file
+    """A folder containing both a regular filesystem-stored file and a link file
     should produce a valid ZIP where the regular file has its actual bytes and
     the link file entry contains the URL (Girder's ZIP behaviour).
     """
@@ -146,7 +144,7 @@ class TestFolderDownloadMixedContent:
     EXTERNAL_URL = "https://example.com/linked-asset.bin"
 
     def test_folder_with_filesystem_and_link_file(
-        self, server, http, admin, fsAssetstore, public_folder, token
+        self, server, http, admin, fsAssetstore, public_folder, token,
     ):
         from girder.models.file import File as FileModel
 

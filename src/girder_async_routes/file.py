@@ -1,5 +1,4 @@
-"""
-Async-native file download route.
+"""Async-native file download route.
 
 Root cause of the buffering problem
 -------------------------------------
@@ -31,9 +30,6 @@ from __future__ import annotations
 import os
 
 import anyio
-from starlette.responses import RedirectResponse, Response, StreamingResponse
-from starlette.routing import Route
-
 from girder import events
 from girder.constants import AccessType
 from girder.exceptions import AccessException
@@ -41,9 +37,10 @@ from girder.models.assetstore import Assetstore
 from girder.models.file import File as FileModel
 from girder.utility.assetstore_utilities import getAssetstoreAdapter
 from girder.utility.filesystem_assetstore_adapter import FilesystemAssetstoreAdapter
+from starlette.responses import RedirectResponse, Response, StreamingResponse
+from starlette.routing import Route
 
 from .utils import BUF_SIZE, _authenticate, _get_token, _json_error, _log_access
-
 
 # ---------------------------------------------------------------------------
 # Blocking helpers – called via anyio.to_thread.run_sync
@@ -51,8 +48,7 @@ from .utils import BUF_SIZE, _authenticate, _get_token, _json_error, _log_access
 
 
 def _resolve(file_id: str, token_str: str | None, offset: int, end_byte: int | None):
-    """
-    Authenticate, ACL-check, and resolve everything needed to stream the file.
+    """Authenticate, ACL-check, and resolve everything needed to stream the file.
     Returns a dict with keys: file, local_path, link_url, status_code.
     """
     user, _ = _authenticate(token_str)
@@ -105,8 +101,7 @@ def _build_sync_generator(
     content_disposition: str,
     extra_parameters=None,
 ):
-    """
-    Invoke Girder's WSGI download path and return the raw chunk iterator.
+    """Invoke Girder's WSGI download path and return the raw chunk iterator.
     Runs inside a thread pool.
     """
     stream_fn = FileModel().download(
@@ -120,7 +115,7 @@ def _build_sync_generator(
 
 
 def _fire_complete_event(
-    file, offset: int, end_byte: int | None, redirect: bool = False
+    file, offset: int, end_byte: int | None, redirect: bool = False,
 ):
     events.trigger(
         "model.file.download.complete",
@@ -166,7 +161,7 @@ async def _handle_download(request, file_id: str) -> Response:
         prelim_offset = offset_qp
 
     info = await anyio.to_thread.run_sync(
-        lambda: _resolve(file_id, token_str, prelim_offset, prelim_end)
+        lambda: _resolve(file_id, token_str, prelim_offset, prelim_end),
     )
     status = info.get("status_code", 500)
     if status == 403:
@@ -179,7 +174,7 @@ async def _handle_download(request, file_id: str) -> Response:
 
     if link_url:
         await anyio.to_thread.run_sync(
-            lambda: _fire_complete_event(file, prelim_offset, prelim_end, redirect=True)
+            lambda: _fire_complete_event(file, prelim_offset, prelim_end, redirect=True),
         )
         return RedirectResponse(link_url)
 
@@ -218,7 +213,7 @@ async def _handle_download(request, file_id: str) -> Response:
                             yield chunk
                 finally:
                     await anyio.to_thread.run_sync(
-                        lambda: _fire_complete_event(file, offset, end_byte)
+                        lambda: _fire_complete_event(file, offset, end_byte),
                     )
 
             return StreamingResponse(
@@ -245,7 +240,7 @@ async def _handle_download(request, file_id: str) -> Response:
                         yield chunk
             finally:
                 await anyio.to_thread.run_sync(
-                    lambda: _fire_complete_event(file, offset, None)
+                    lambda: _fire_complete_event(file, offset, None),
                 )
 
         return StreamingResponse(
@@ -265,7 +260,7 @@ async def _handle_download(request, file_id: str) -> Response:
     # demand-driven backpressure without an unbounded in-memory queue.
     async def _wsgi_backed_stream():
         gen = await anyio.to_thread.run_sync(
-            lambda: _build_sync_generator(file, offset, end_byte, content_disposition)
+            lambda: _build_sync_generator(file, offset, end_byte, content_disposition),
         )
         try:
             while True:
@@ -275,7 +270,7 @@ async def _handle_download(request, file_id: str) -> Response:
                 yield chunk
         finally:
             await anyio.to_thread.run_sync(
-                lambda: _fire_complete_event(file, offset, end_byte)
+                lambda: _fire_complete_event(file, offset, end_byte),
             )
 
     base_headers: dict[str, str] = {

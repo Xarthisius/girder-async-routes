@@ -10,7 +10,6 @@ from girder.models.upload import Upload
 
 from .conftest import auth_headers, get_private_folder, upload_file
 
-
 # ---------------------------------------------------------------------------
 # GET|POST /api/v1/resource/download  (multi-resource bulk zip)
 # ---------------------------------------------------------------------------
@@ -18,7 +17,7 @@ from .conftest import auth_headers, get_private_folder, upload_file
 
 class TestResourceDownload:
     def test_download_single_item(
-        self, server, http, admin, fsAssetstore, public_folder, token
+        self, server, http, admin, fsAssetstore, public_folder, token,
     ):
         content = b"resource item content"
         upload_file(server, "res_item.txt", content, admin, public_folder)
@@ -38,7 +37,7 @@ class TestResourceDownload:
         assert any("res_item.txt" in n for n in z.namelist())
 
     def test_download_single_folder(
-        self, server, http, admin, fsAssetstore, public_folder, token
+        self, server, http, admin, fsAssetstore, public_folder, token,
     ):
         sub = Folder().createFolder(
             parent=public_folder,
@@ -67,7 +66,7 @@ class TestResourceDownload:
         assert any("res_folder_file.txt" in n for n in z.namelist())
 
     def test_download_mixed_resources(
-        self, server, http, admin, fsAssetstore, public_folder, token
+        self, server, http, admin, fsAssetstore, public_folder, token,
     ):
         upload_file(server, "mixed_item.txt", b"item bytes", admin, public_folder)
         items = list(Folder().childItems(public_folder))
@@ -89,7 +88,7 @@ class TestResourceDownload:
         )
 
         resources = _json.dumps(
-            {"item": [str(item["_id"])], "folder": [str(sub["_id"])]}
+            {"item": [str(item["_id"])], "folder": [str(sub["_id"])]},
         )
         resp = http.get(
             f"/api/v1/resource/download?resources={resources}",
@@ -104,7 +103,7 @@ class TestResourceDownload:
         assert any("mixed_folder_file.txt" in n for n in names)
 
     def test_post_method_works(
-        self, server, http, admin, fsAssetstore, public_folder, token
+        self, server, http, admin, fsAssetstore, public_folder, token,
     ):
         content = b"post method content"
         upload_file(server, "post_item.txt", content, admin, public_folder)
@@ -124,7 +123,7 @@ class TestResourceDownload:
         assert any("post_item.txt" in n for n in z.namelist())
 
     def test_unauthenticated_private_resource_returns_403(
-        self, server, http, admin, fsAssetstore
+        self, server, http, admin, fsAssetstore,
     ):
         private_folder = get_private_folder(admin)
         resources = _json.dumps({"folder": [str(private_folder["_id"])]})
@@ -155,7 +154,7 @@ class TestResourceDownload:
         assert resp.status_code == 400
 
     def test_include_metadata_flag(
-        self, server, http, admin, fsAssetstore, public_folder, token
+        self, server, http, admin, fsAssetstore, public_folder, token,
     ):
         """When includeMetadata=true, Girder adds a JSON sidecar to the zip."""
         item = Item().createItem(name="meta_item", creator=admin, folder=public_folder)
