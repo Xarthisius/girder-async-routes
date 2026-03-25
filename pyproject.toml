@@ -30,6 +30,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+junit_family = ["xunit2"]
 
 [tool.coverage.run]
 source = ["girder_async_routes"]
