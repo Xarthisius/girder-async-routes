@@ -526,3 +526,203 @@ class TestFolderDownloadErrors:
             headers=_auth_headers(user_token),
         )
         assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Link-URL files  (files that reference an external URL, not an assetstore)
+# ---------------------------------------------------------------------------
+
+
+class TestLinkFileDownload:
+    """
+    Girder supports "link files" – File documents that carry a ``linkUrl``
+    field instead of an ``assetstoreId``.  The async route must issue a
+    307 redirect to that URL.
+    """
+
+    EXTERNAL_URL = "https://example.com/remote-file.txt"
+
+    @pytest.fixture
+    def link_file(self, admin, public_folder):
+        from girder.models.file import File as FileModel
+
+        return FileModel().createLinkFile(
+            name="remote.txt",
+            parent=public_folder,
+            parentType="folder",
+            url=self.EXTERNAL_URL,
+            creator=admin,
+        )
+
+    def test_link_file_redirects(self, link_file, http, token):
+        """Downloading a link file must return a 307 redirect to the external URL."""
+        resp = http.get(
+            f"/api/v1/file/{link_file['_id']}/download",
+            headers=_auth_headers(token),
+            follow_redirects=False,
+        )
+        assert resp.status_code == 307
+        assert resp.headers["location"] == self.EXTERNAL_URL
+
+    def test_link_file_via_item_redirects(self, link_file, http, token):
+        """When an item's sole file is a link file, the item download must also redirect."""
+        resp = http.get(
+            f"/api/v1/item/{link_file['itemId']}/download",
+            headers=_auth_headers(token),
+            follow_redirects=False,
+        )
+        assert resp.status_code == 307
+        assert resp.headers["location"] == self.EXTERNAL_URL
+
+    def test_unauthenticated_link_file_public_folder_allows_access(
+        self, link_file, http
+    ):
+        """A link file in a public folder is accessible without a token."""
+        resp = http.get(
+            f"/api/v1/file/{link_file['_id']}/download",
+            follow_redirects=False,
+        )
+        assert resp.status_code == 307
+        assert resp.headers["location"] == self.EXTERNAL_URL
+
+
+# ---------------------------------------------------------------------------
+# Mixed-content folder  (filesystem file + link file)
+# ---------------------------------------------------------------------------
+
+
+class TestFolderDownloadMixedContent:
+    """
+    A folder that contains both a regular filesystem-stored file and a link
+    file should produce a valid ZIP where:
+    - the regular file is present with its actual byte content, and
+    - the link file is present with its URL as the entry content (Girder's
+      behaviour when building ZIPs: headers=False path in File.download()).
+    """
+
+    EXTERNAL_URL = "https://example.com/linked-asset.bin"
+
+    def test_folder_with_filesystem_and_link_file(
+        self, server, http, admin, fsAssetstore, public_folder, token
+    ):
+        from girder.models.file import File as FileModel
+
+        sub = Folder().createFolder(
+            parent=public_folder,
+            name="mixed_content_sub",
+            creator=admin,
+            parentType="folder",
+        )
+
+        # Regular file stored in the filesystem assetstore
+        real_content = b"real file bytes"
+        Upload().uploadFromFile(
+            io.BytesIO(real_content),
+            size=len(real_content),
+            name="real.txt",
+            parentType="folder",
+            parent=sub,
+            user=admin,
+        )
+
+        # Link file – no assetstore, just a URL reference
+        FileModel().createLinkFile(
+            name="link.txt",
+            parent=sub,
+            parentType="folder",
+            url=self.EXTERNAL_URL,
+            creator=admin,
+        )
+
+        resp = http.get(
+            f"/api/v1/folder/{sub['_id']}/download",
+            headers=_auth_headers(token),
+        )
+        assert resp.status_code == 200
+        assert resp.headers["Content-Type"] == "application/zip"
+
+        z = zipfile.ZipFile(io.BytesIO(resp.content))
+        names = z.namelist()
+
+        # Both entries must be present in the archive
+        real_entry = next((n for n in names if "real.txt" in n), None)
+        link_entry = next((n for n in names if "link.txt" in n), None)
+        assert real_entry is not None, f"real.txt missing from ZIP; entries: {names}"
+        assert link_entry is not None, f"link.txt missing from ZIP; entries: {names}"
+
+        # The regular file must contain the original bytes
+        assert z.read(real_entry) == real_content
+
+        # The link file entry contains the URL string (Girder's zip behaviour)
+        assert z.read(link_entry) == self.EXTERNAL_URL.encode()
+
+
+# ---------------------------------------------------------------------------
+# Non-filesystem assetstore  (WSGI-backed streaming path)
+# ---------------------------------------------------------------------------
+
+
+class TestNonFilesystemAssetstore:
+    """
+    Exercises the ``_wsgi_backed_stream`` code path in routes.py that is used
+    whenever ``local_path`` is None (i.e. the file lives on a non-filesystem
+    assetstore such as S3 or GridFS).
+
+    Rather than spinning up a real S3 server we upload a real file to the
+    filesystem assetstore and then patch ``girder_async_routes.routes._resolve``
+    to strip ``local_path`` from the result, forcing the handler to fall
+    through to the WSGI-backed streaming path while still using the real
+    Girder ``FileModel.download()`` implementation to produce the bytes.
+    """
+
+    def test_wsgi_backed_full_download(
+        self, server, http, admin, fsAssetstore, public_folder, token, monkeypatch
+    ):
+        """Full download via the WSGI-backed (non-filesystem) streaming path."""
+        import girder_async_routes.routes as _routes
+
+        content = b"non-fs assetstore content" * 10
+        file = _upload_file(server, "nonfs.bin", content, admin, public_folder)
+
+        _orig_resolve = _routes._resolve
+
+        def _patched_resolve(file_id, token_str, offset, end_byte):
+            result = _orig_resolve(file_id, token_str, offset, end_byte)
+            # Strip local_path to simulate a non-filesystem assetstore adapter
+            result.pop("local_path", None)
+            return result
+
+        monkeypatch.setattr(_routes, "_resolve", _patched_resolve)
+
+        resp = http.get(
+            f"/api/v1/file/{file['_id']}/download",
+            headers=_auth_headers(token),
+        )
+        assert resp.status_code == 200
+        assert resp.content == content
+
+    def test_wsgi_backed_range_request(
+        self, server, http, admin, fsAssetstore, public_folder, token, monkeypatch
+    ):
+        """Partial (Range) download via the WSGI-backed streaming path."""
+        import girder_async_routes.routes as _routes
+
+        content = b"0123456789" * 10  # 100 bytes
+        file = _upload_file(server, "nonfs_range.bin", content, admin, public_folder)
+
+        _orig_resolve = _routes._resolve
+
+        def _patched_resolve(file_id, token_str, offset, end_byte):
+            result = _orig_resolve(file_id, token_str, offset, end_byte)
+            result.pop("local_path", None)
+            return result
+
+        monkeypatch.setattr(_routes, "_resolve", _patched_resolve)
+
+        resp = http.get(
+            f"/api/v1/file/{file['_id']}/download",
+            headers={**_auth_headers(token), "Range": "bytes=10-19"},
+        )
+        assert resp.status_code == 206
+        assert resp.content == b"0123456789"
+        assert resp.headers["Content-Range"] == "bytes 10-19/100"
