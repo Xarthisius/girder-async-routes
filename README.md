@@ -1,4 +1,4 @@
-# Girder Async routes
+# Girder Async Routes
 
 ## Problem description
 
@@ -17,5 +17,5 @@ This plugin adds support for asynchronous routes in Girder to circumvent these i
 ## Usage
 
 ```
-gunicorn asgi:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8080
+gunicorn girder_async_routes.asgi:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8080
 ```
