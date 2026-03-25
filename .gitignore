@@ -8,6 +8,7 @@ girder-*.tar.gz
 node_modules/
 *.egg-info
 .coverage
+coverage.xml
 
 # Toolchain generated
 __pycache__
