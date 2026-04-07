@@ -58,6 +58,8 @@ async def lifespan(app):
     logger.info("Girder server running")
     yield
 
+_wsgi_middleware = WSGIMiddleware(wsgi_app)
+_buffered_wsgi = BodyBufferingMiddleware(_wsgi_middleware)
 
 # Route order matters: specific ASGI routes are evaluated before the
 # WSGIMiddleware catch-all Mount.  File download routes must come first
@@ -67,6 +69,6 @@ app = Starlette(
     routes=[
         WebSocketRoute("/notifications/me", UserNotificationsSocket),
         *async_file_routes,
-        Mount("/", app=WSGIMiddleware(wsgi_app)),
+        Mount("/", app=_buffered_wsgi),
     ],
 )
