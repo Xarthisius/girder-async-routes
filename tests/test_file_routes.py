@@ -2,6 +2,8 @@
 
 import pytest
 from girder.models.folder import Folder
+from girder.models.setting import Setting
+from girder.settings import SettingKey
 
 import girder_async_routes.file as _file_module
 
@@ -14,7 +16,13 @@ from .conftest import auth_headers, get_private_folder, upload_file
 
 class TestFileDownload:
     def test_full_download(
-        self, server, http, admin, fsAssetstore, public_folder, token,
+        self,
+        server,
+        http,
+        admin,
+        fsAssetstore,
+        public_folder,
+        token,
     ):
         content = b"Hello, async world!" * 100
         file = upload_file(server, "hello.txt", content, admin, public_folder)
@@ -26,7 +34,13 @@ class TestFileDownload:
         assert resp.content == content
 
     def test_full_download_token_query_param(
-        self, server, http, admin, fsAssetstore, public_folder, token,
+        self,
+        server,
+        http,
+        admin,
+        fsAssetstore,
+        public_folder,
+        token,
     ):
         content = b"token-in-query-param"
         file = upload_file(server, "qp.txt", content, admin, public_folder)
@@ -37,7 +51,13 @@ class TestFileDownload:
         assert resp.content == content
 
     def test_full_download_with_name_segment(
-        self, server, http, admin, fsAssetstore, public_folder, token,
+        self,
+        server,
+        http,
+        admin,
+        fsAssetstore,
+        public_folder,
+        token,
     ):
         """The /download/{name} variant is cosmetic; content must be equal."""
         content = b"named download"
@@ -52,7 +72,13 @@ class TestFileDownload:
         assert resp.content == content
 
     def test_range_request_partial(
-        self, server, http, admin, fsAssetstore, public_folder, token,
+        self,
+        server,
+        http,
+        admin,
+        fsAssetstore,
+        public_folder,
+        token,
     ):
         content = b"0123456789" * 10  # 100 bytes
         file = upload_file(server, "range.bin", content, admin, public_folder)
@@ -68,7 +94,13 @@ class TestFileDownload:
         assert resp.headers["Content-Length"] == "10"
 
     def test_range_request_mid_file(
-        self, server, http, admin, fsAssetstore, public_folder, token,
+        self,
+        server,
+        http,
+        admin,
+        fsAssetstore,
+        public_folder,
+        token,
     ):
         content = b"abcdefghij" * 10  # 100 bytes
         file = upload_file(server, "midrange.bin", content, admin, public_folder)
@@ -83,7 +115,13 @@ class TestFileDownload:
         assert resp.headers["Content-Range"] == "bytes 10-19/100"
 
     def test_open_ended_range(
-        self, server, http, admin, fsAssetstore, public_folder, token,
+        self,
+        server,
+        http,
+        admin,
+        fsAssetstore,
+        public_folder,
+        token,
     ):
         content = b"xyz" * 10  # 30 bytes
         file = upload_file(server, "openrange.bin", content, admin, public_folder)
@@ -97,7 +135,13 @@ class TestFileDownload:
         assert resp.content == content
 
     def test_content_disposition_attachment(
-        self, server, http, admin, fsAssetstore, public_folder, token,
+        self,
+        server,
+        http,
+        admin,
+        fsAssetstore,
+        public_folder,
+        token,
     ):
         content = b"disp"
         file = upload_file(server, "disp.txt", content, admin, public_folder)
@@ -108,7 +152,13 @@ class TestFileDownload:
         assert "disp.txt" in resp.headers.get("Content-Disposition", "")
 
     def test_content_disposition_inline(
-        self, server, http, admin, fsAssetstore, public_folder, token,
+        self,
+        server,
+        http,
+        admin,
+        fsAssetstore,
+        public_folder,
+        token,
     ):
         content = b"inline-disp"
         file = upload_file(server, "inline.txt", content, admin, public_folder)
@@ -121,7 +171,13 @@ class TestFileDownload:
         assert resp.headers.get("Content-Disposition", "").startswith("inline")
 
     def test_offset_query_param(
-        self, server, http, admin, fsAssetstore, public_folder, token,
+        self,
+        server,
+        http,
+        admin,
+        fsAssetstore,
+        public_folder,
+        token,
     ):
         content = b"ABCDEFGHIJ"  # 10 bytes
         file = upload_file(server, "offset.bin", content, admin, public_folder)
@@ -135,7 +191,12 @@ class TestFileDownload:
         assert resp.content == b"FGHIJ"
 
     def test_private_file_accessible_with_owner_token(
-        self, server, http, admin, fsAssetstore, token,
+        self,
+        server,
+        http,
+        admin,
+        fsAssetstore,
+        token,
     ):
         private_folder = get_private_folder(admin)
         content = b"private content"
@@ -156,7 +217,12 @@ class TestFileDownload:
 
 class TestFileDownloadErrors:
     def test_unauthenticated_returns_403(
-        self, server, http, admin, fsAssetstore, token,
+        self,
+        server,
+        http,
+        admin,
+        fsAssetstore,
+        token,
     ):
         private_folder = get_private_folder(admin)
         content = b"secret"
@@ -183,7 +249,13 @@ class TestFileDownloadErrors:
         assert resp.status_code == 404
 
     def test_user_cannot_read_private_file(
-        self, server, http, admin, user, fsAssetstore, user_token,
+        self,
+        server,
+        http,
+        admin,
+        user,
+        fsAssetstore,
+        user_token,
     ):
         folders = list(Folder().childFolders(admin, parentType="user", user=admin))
         private_folder = next(f for f in folders if f["name"] == "Private")
@@ -242,7 +314,9 @@ class TestLinkFileDownload:
         assert resp.headers["location"] == self.EXTERNAL_URL
 
     def test_unauthenticated_link_file_public_folder_allows_access(
-        self, link_file, http,
+        self,
+        link_file,
+        http,
     ):
         resp = http.get(
             f"/api/v1/file/{link_file['_id']}/download",
@@ -265,7 +339,14 @@ class TestNonFilesystemAssetstore:
     """
 
     def test_wsgi_backed_full_download(
-        self, server, http, admin, fsAssetstore, public_folder, token, monkeypatch,
+        self,
+        server,
+        http,
+        admin,
+        fsAssetstore,
+        public_folder,
+        token,
+        monkeypatch,
     ):
         content = b"non-fs assetstore content" * 10
         file = upload_file(server, "nonfs.bin", content, admin, public_folder)
@@ -287,7 +368,14 @@ class TestNonFilesystemAssetstore:
         assert resp.content == content
 
     def test_wsgi_backed_range_request(
-        self, server, http, admin, fsAssetstore, public_folder, token, monkeypatch,
+        self,
+        server,
+        http,
+        admin,
+        fsAssetstore,
+        public_folder,
+        token,
+        monkeypatch,
     ):
         content = b"0123456789" * 10  # 100 bytes
         file = upload_file(server, "nonfs_range.bin", content, admin, public_folder)
@@ -308,3 +396,129 @@ class TestNonFilesystemAssetstore:
         assert resp.status_code == 206
         assert resp.content == b"0123456789"
         assert resp.headers["Content-Range"] == "bytes 10-19/100"
+
+
+# ---------------------------------------------------------------------------
+# CORS headers
+# ---------------------------------------------------------------------------
+
+
+class TestCorsHeaders:
+    """Verify that _log_access injects CORS headers matching Girder's logic."""
+
+    @pytest.fixture(autouse=True)
+    def _cors_settings(self, db):
+        """Enable CORS for a specific origin and reset after the test."""
+        Setting().set(SettingKey.CORS_ALLOW_ORIGIN, "https://example.com")
+        Setting().set(SettingKey.CORS_EXPOSE_HEADERS, "Girder-Total-Count")
+        yield
+        Setting().unset(SettingKey.CORS_ALLOW_ORIGIN)
+        Setting().unset(SettingKey.CORS_EXPOSE_HEADERS)
+
+    def test_cors_headers_present_for_allowed_origin(
+        self,
+        server,
+        http,
+        admin,
+        fsAssetstore,
+        public_folder,
+        token,
+    ):
+        content = b"cors test"
+        file = upload_file(server, "cors.txt", content, admin, public_folder)
+
+        resp = http.get(
+            f"/api/v1/file/{file['_id']}/download",
+            headers={**auth_headers(token), "Origin": "https://example.com"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.headers.get("Access-Control-Allow-Origin") == "https://example.com"
+        assert resp.headers.get("Access-Control-Allow-Credentials") == "true"
+        assert resp.headers.get("Access-Control-Expose-Headers") == "Girder-Total-Count"
+
+    def test_cors_headers_absent_without_origin_header(
+        self,
+        server,
+        http,
+        admin,
+        fsAssetstore,
+        public_folder,
+        token,
+    ):
+        content = b"no origin"
+        file = upload_file(server, "nocors.txt", content, admin, public_folder)
+
+        resp = http.get(
+            f"/api/v1/file/{file['_id']}/download",
+            headers=auth_headers(token),
+        )
+
+        assert resp.status_code == 200
+        assert "Access-Control-Allow-Origin" not in resp.headers
+
+    def test_cors_headers_absent_for_disallowed_origin(
+        self,
+        server,
+        http,
+        admin,
+        fsAssetstore,
+        public_folder,
+        token,
+    ):
+        content = b"bad origin"
+        file = upload_file(server, "badcors.txt", content, admin, public_folder)
+
+        resp = http.get(
+            f"/api/v1/file/{file['_id']}/download",
+            headers={**auth_headers(token), "Origin": "https://evil.com"},
+        )
+
+        assert resp.status_code == 200
+        assert "Access-Control-Allow-Origin" not in resp.headers
+
+    def test_cors_wildcard_origin(
+        self,
+        server,
+        http,
+        admin,
+        fsAssetstore,
+        public_folder,
+        token,
+        db,
+    ):
+        Setting().set(SettingKey.CORS_ALLOW_ORIGIN, "*")
+
+        content = b"wildcard cors"
+        file = upload_file(server, "wildcors.txt", content, admin, public_folder)
+
+        resp = http.get(
+            f"/api/v1/file/{file['_id']}/download",
+            headers={**auth_headers(token), "Origin": "https://any.com"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.headers.get("Access-Control-Allow-Origin") == "*"
+
+    def test_cors_no_headers_when_setting_unset(
+        self,
+        server,
+        http,
+        admin,
+        fsAssetstore,
+        public_folder,
+        token,
+        db,
+    ):
+        Setting().unset(SettingKey.CORS_ALLOW_ORIGIN)
+
+        content = b"unset cors"
+        file = upload_file(server, "unsetcors.txt", content, admin, public_folder)
+
+        resp = http.get(
+            f"/api/v1/file/{file['_id']}/download",
+            headers={**auth_headers(token), "Origin": "https://example.com"},
+        )
+
+        assert resp.status_code == 200
+        assert "Access-Control-Allow-Origin" not in resp.headers
