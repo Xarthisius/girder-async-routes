@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import datetime
+import fnmatch
 import functools
 import json
 import logging
 
 import anyio
 from girder.constants import TokenScope
+from girder.models.setting import Setting
 from girder.models.token import Token
 from girder.models.user import User
+from girder.settings import SettingKey
 from starlette.responses import Response
 
 logger = logging.getLogger(__name__)
@@ -18,6 +21,32 @@ logger = logging.getLogger(__name__)
 access_logger = logging.getLogger("cherrypy.access")
 
 BUF_SIZE = 65536  # 64 KiB — matches filesystem_assetstore_adapter
+
+
+def _get_cors_headers(origin: str) -> dict[str, str]:
+    """Compute CORS response headers for *origin*, mirroring Girder's
+    ``girder.api.rest._setCommonCORSHeaders``.  Runs inside a thread pool
+    (DB access via Setting model).
+    """
+    allowed = Setting().get(SettingKey.CORS_ALLOW_ORIGIN)
+    if not allowed:
+        return {}
+
+    headers: dict[str, str] = {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Expose-Headers": Setting().get(SettingKey.CORS_EXPOSE_HEADERS)
+        or "",
+    }
+
+    allowed_set = {o.strip() for o in allowed.split(",")}
+    allowed_without_wildcard = allowed_set - {"*"}
+
+    if any(fnmatch.fnmatch(origin, pattern) for pattern in allowed_without_wildcard):
+        headers["Access-Control-Allow-Origin"] = origin
+    elif "*" in allowed_set:
+        headers["Access-Control-Allow-Origin"] = "*"
+
+    return headers
 
 
 # ---------------------------------------------------------------------------
@@ -39,6 +68,14 @@ def _log_access(handler):
     @functools.wraps(handler)
     async def wrapper(request):
         response = await handler(request)
+
+        origin = request.headers.get("origin")
+        if origin:
+            cors_headers = await anyio.to_thread.run_sync(
+                lambda: _get_cors_headers(origin)
+            )
+            for key, value in cors_headers.items():
+                response.headers[key] = value
 
         remote = request.client.host if request.client else "-"
         now = datetime.datetime.now().strftime("%d/%b/%Y:%H:%M:%S")
