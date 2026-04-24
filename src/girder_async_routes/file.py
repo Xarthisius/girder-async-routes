@@ -37,10 +37,30 @@ from girder.models.assetstore import Assetstore
 from girder.models.file import File as FileModel
 from girder.utility.assetstore_utilities import getAssetstoreAdapter
 from girder.utility.filesystem_assetstore_adapter import FilesystemAssetstoreAdapter
+from girder.wsgi import app as wsgi_app
+from starlette.middleware.wsgi import WSGIMiddleware
 from starlette.responses import RedirectResponse, Response, StreamingResponse
 from starlette.routing import Route
 
 from .utils import BUF_SIZE, _authenticate, _get_token, _json_error, _log_access
+
+_wsgi_fallback = WSGIMiddleware(wsgi_app)
+
+
+class _WSGIProxyResponse:
+    """Pseudo-response that delegates the entire ASGI call to the WSGI app.
+
+    Returned when *file_id* contains ``"wtlocal:"`` so that Girder's own
+    WSGI handler services the request instead of the async path.
+    """
+
+    def __init__(self):
+        self.status_code = 0
+        self.headers = {}
+
+    async def __call__(self, scope, receive, send):
+        await _wsgi_fallback(scope, receive, send)
+
 
 # ---------------------------------------------------------------------------
 # Blocking helpers – called via anyio.to_thread.run_sync
@@ -115,7 +135,10 @@ def _build_sync_generator(
 
 
 def _fire_complete_event(
-    file, offset: int, end_byte: int | None, redirect: bool = False,
+    file,
+    offset: int,
+    end_byte: int | None,
+    redirect: bool = False,
 ):
     events.trigger(
         "model.file.download.complete",
@@ -149,6 +172,9 @@ def _parse_range(range_header: str | None, file_size: int) -> tuple[int, int | N
 
 
 async def _handle_download(request, file_id: str) -> Response:
+    if "wtlocal:" in file_id:
+        return _WSGIProxyResponse()
+
     token_str = _get_token(request)
     content_disposition = request.query_params.get("contentDisposition", "attachment")
     # Range header takes precedence over the ?offset= query param, matching CherryPy.
@@ -174,7 +200,9 @@ async def _handle_download(request, file_id: str) -> Response:
 
     if link_url:
         await anyio.to_thread.run_sync(
-            lambda: _fire_complete_event(file, prelim_offset, prelim_end, redirect=True),
+            lambda: _fire_complete_event(
+                file, prelim_offset, prelim_end, redirect=True
+            ),
         )
         return RedirectResponse(link_url)
 
@@ -295,8 +323,6 @@ async def _handle_download(request, file_id: str) -> Response:
 # ---------------------------------------------------------------------------
 # Route handlers
 # ---------------------------------------------------------------------------
-
-
 @_log_access
 async def file_download(request):
     return await _handle_download(request, request.path_params["file_id"])
